@@ -8,11 +8,11 @@ const App: React.FC = () => {
 
   if (loading) {
     // You can add a global loading spinner here
-    return <div className="w-screen h-screen flex items-center justify-center bg-black"><p className="text-white">Loading...</p></div>;
+    return <div className="w-screen h-screen flex items-center justify-center bg-gray-900"><p className="text-white">Loading...</p></div>;
   }
 
   return (
-    <div className="w-full min-h-screen bg-black">
+    <div className="w-full min-h-screen bg-gray-900">
       {user ? <Layout /> : <AuthScreen />}
     </div>
   );

@@ -63,7 +63,7 @@ export const ResearchAssistant: React.FC = () => {
     const TypeButton = useCallback(({ type }: { type: SearchType }) => (
         <button
             onClick={() => { setSearchType(type); setResult(null); setError(''); }}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${searchType === type ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${searchType === type ? 'bg-amber-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
         >
             {type} Search
         </button>
@@ -71,7 +71,7 @@ export const ResearchAssistant: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col">
-            <h2 className="text-2xl font-bold text-red-400 mb-4">Research Assistant</h2>
+            <h2 className="text-2xl font-bold text-amber-400 mb-4">Research Assistant</h2>
             <div className="flex gap-2 mb-4">
                 <TypeButton type="Web" />
                 <TypeButton type="Maps" />
@@ -84,7 +84,7 @@ export const ResearchAssistant: React.FC = () => {
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         placeholder={searchType === 'Web' ? 'Ask about recent events or topics...' : 'Find nearby places, e.g., "good coffee shops"'}
-                        className="w-full bg-gray-800 text-white rounded-lg p-3 pl-10 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        className="w-full bg-gray-800 text-white rounded-lg p-3 pl-10 focus:outline-none focus:ring-2 focus:ring-amber-500"
                         disabled={isLoading}
                     />
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -93,21 +93,21 @@ export const ResearchAssistant: React.FC = () => {
                 </div>
             </form>
 
-            <div className="flex-grow bg-black rounded-lg p-4">
+            <div className="flex-grow bg-gray-900 rounded-lg p-4">
                 {isLoading && <LoadingSpinner text="Searching..." />}
-                {error && <p className="text-red-500 text-center">{error}</p>}
+                {error && <p className="text-amber-500 text-center">{error}</p>}
                 {result && (
                     <div>
                         <div className="text-gray-300 whitespace-pre-wrap mb-6 prose prose-invert max-w-none prose-p:text-gray-300 prose-headings:text-white">{result.text}</div>
                         {result.sources.length > 0 && (
                             <div>
-                                <h3 className="text-lg font-semibold text-red-300 mb-2 border-t border-gray-700 pt-4">Sources</h3>
+                                <h3 className="text-lg font-semibold text-amber-300 mb-2 border-t border-gray-700 pt-4">Sources</h3>
                                 <ul className="list-disc list-inside space-y-2">
                                     {result.sources.map((source, index) => (
                                         <li key={index}>
                                             {/* FIX: Check for URI existence and provide fallback for title to prevent rendering broken links. */}
-                                            {source.web?.uri && <a href={source.web.uri} target="_blank" rel="noopener noreferrer" className="text-red-400 hover:underline">{source.web.title || source.web.uri}</a>}
-                                            {source.maps?.uri && <a href={source.maps.uri} target="_blank" rel="noopener noreferrer" className="text-red-400 hover:underline">{source.maps.title || source.maps.uri}</a>}
+                                            {source.web?.uri && <a href={source.web.uri} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">{source.web.title || source.web.uri}</a>}
+                                            {source.maps?.uri && <a href={source.maps.uri} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:underline">{source.maps.title || source.maps.uri}</a>}
                                         </li>
                                     ))}
                                 </ul>

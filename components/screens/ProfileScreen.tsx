@@ -15,7 +15,7 @@ const ProfileScreen: React.FC = () => {
                 <div className="flex flex-col items-center pt-8 text-white">
                     <img src={user.avatar_url} alt={user.full_name} className="w-24 h-24 rounded-full mb-4 border-4 border-gray-800 shadow-lg" />
                     <h1 className="text-2xl font-bold text-white">{user.full_name}</h1>
-                    <p className="text-sm font-semibold capitalize text-red-500 mb-2">{user.role}</p>
+                    <p className="text-sm font-semibold capitalize text-amber-500 mb-2">{user.role}</p>
                     <p className="text-gray-400 text-center max-w-md mb-6">{user.bio}</p>
 
                     {/* Stats */}
@@ -36,7 +36,7 @@ const ProfileScreen: React.FC = () => {
 
                     <button
                         onClick={logout}
-                        className="w-full max-w-xs bg-red-600 text-white font-bold py-2 px-4 rounded-md hover:bg-red-700 transition-colors"
+                        className="w-full max-w-xs bg-amber-600 text-white font-bold py-2 px-4 rounded-md hover:bg-amber-700 transition-colors"
                     >
                         Log Out
                     </button>

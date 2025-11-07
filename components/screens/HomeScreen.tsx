@@ -44,9 +44,9 @@ const HomeScreen: React.FC = () => {
     return (
         <div>
             {/* Header */}
-            <header className="sticky top-0 bg-black/80 backdrop-blur-md z-10 border-b border-gray-800">
-                <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
-                    <h1 className="text-xl font-bold text-white">MentorHub</h1>
+            <header className="sticky top-0 bg-gray-900/80 backdrop-blur-md z-10 border-b border-gray-800">
+                <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center h-16">
+                    <img src="https://aiteksoftware.site/magnetar/logo.png" alt="Magnetar Logo" className="h-8 w-auto" />
                     <img src={user?.avatar_url} alt="My Avatar" className="w-8 h-8 rounded-full" />
                 </div>
             </header>

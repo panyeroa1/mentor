@@ -50,10 +50,10 @@ export const ImageEditor: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col">
-            <h2 className="text-2xl font-bold text-red-400 mb-4">AI Image Editor</h2>
+            <h2 className="text-2xl font-bold text-amber-400 mb-4">AI Image Editor</h2>
             <div className="flex flex-col md:flex-row gap-4 mb-4">
                 <div className="flex-1">
-                     <label htmlFor="image-upload" className="cursor-pointer block border-2 border-dashed border-gray-700 rounded-lg p-4 text-center hover:border-red-500 transition-colors">
+                     <label htmlFor="image-upload" className="cursor-pointer block border-2 border-dashed border-gray-700 rounded-lg p-4 text-center hover:border-amber-500 transition-colors">
                         {originalImagePreview ? (
                             <img src={originalImagePreview} alt="Original" className="max-h-40 mx-auto rounded-md" />
                         ) : (
@@ -68,23 +68,23 @@ export const ImageEditor: React.FC = () => {
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         placeholder="e.g., Add a retro filter, or remove the person in the background..."
-                        className="w-full h-full bg-gray-800 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        className="w-full h-full bg-gray-800 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-amber-500"
                         disabled={isLoading}
                     />
                     <button
                         onClick={handleSubmit}
                         disabled={isLoading || !originalImage || !prompt.trim()}
-                        className="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 disabled:bg-gray-700 transition-colors"
+                        className="w-full bg-amber-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-amber-700 disabled:bg-gray-700 transition-colors"
                     >
                         {isLoading ? 'Editing...' : 'Edit Image'}
                     </button>
                 </div>
             </div>
 
-            {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+            {error && <p className="text-amber-500 text-center mb-4">{error}</p>}
             
             <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-black p-4 rounded-lg flex flex-col items-center justify-center">
+                <div className="bg-gray-900 p-4 rounded-lg flex flex-col items-center justify-center">
                     <h3 className="text-lg font-semibold text-white mb-2">Original</h3>
                     {originalImagePreview ? (
                         <img src={originalImagePreview} alt="Original" className="max-h-80 w-auto rounded-lg shadow-lg" />
@@ -92,7 +92,7 @@ export const ImageEditor: React.FC = () => {
                         <p className="text-gray-500">Upload an image to see it here.</p>
                     )}
                 </div>
-                <div className="bg-black p-4 rounded-lg flex flex-col items-center justify-center">
+                <div className="bg-gray-900 p-4 rounded-lg flex flex-col items-center justify-center">
                     <h3 className="text-lg font-semibold text-white mb-2">Edited</h3>
                     {isLoading && <LoadingSpinner text="Generating..." />}
                     {!isLoading && editedImage && (

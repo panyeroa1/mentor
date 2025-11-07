@@ -81,7 +81,7 @@ export const ContentAnalyzer: React.FC = () => {
     const TypeButton = useCallback(({ type }: { type: AnalysisType }) => (
         <button
             onClick={() => { setAnalysisType(type); setFile(null); setFilePreview(null); setResult(''); setError(''); }}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${analysisType === type ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${analysisType === type ? 'bg-amber-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
         >
             Analyze {type}
         </button>
@@ -89,7 +89,7 @@ export const ContentAnalyzer: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col">
-            <h2 className="text-2xl font-bold text-red-400 mb-4">Content Analyzer</h2>
+            <h2 className="text-2xl font-bold text-amber-400 mb-4">Content Analyzer</h2>
             <div className="flex gap-2 mb-4">
                 <TypeButton type="Image" />
                 <TypeButton type="Video" />
@@ -105,7 +105,7 @@ export const ContentAnalyzer: React.FC = () => {
                             {filePreview && analysisType === 'Image' && <img src={filePreview} alt="Preview" className="max-h-48 rounded-lg mx-auto" />}
                              {filePreview === 'audio' && <p className="text-center text-gray-400">Audio file selected: <br/> <span className="font-semibold text-gray-200">{file?.name}</span></p>}
                              {filePreview === 'video' && <p className="text-center text-gray-400">Video file selected: <br/> <span className="font-semibold text-gray-200">{file?.name}</span></p>}
-                            <p className="mt-2 text-red-400 font-semibold">
+                            <p className="mt-2 text-amber-400 font-semibold">
                                 {file ? 'Change file' : `Click to upload ${analysisType}`}
                             </p>
                         </label>
@@ -116,7 +116,7 @@ export const ContentAnalyzer: React.FC = () => {
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
                             placeholder={`e.g., What is in this image? or Summarize this video.`}
-                            className="w-full bg-gray-800 text-white rounded-lg p-3 h-24 focus:outline-none focus:ring-2 focus:ring-red-500"
+                            className="w-full bg-gray-800 text-white rounded-lg p-3 h-24 focus:outline-none focus:ring-2 focus:ring-amber-500"
                             disabled={isLoading}
                         />
                     )}
@@ -124,15 +124,15 @@ export const ContentAnalyzer: React.FC = () => {
                     <button
                         onClick={handleSubmit}
                         disabled={isLoading || !file}
-                        className="w-full bg-red-600 text-white font-bold py-3 px-5 rounded-lg hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors"
+                        className="w-full bg-amber-600 text-white font-bold py-3 px-5 rounded-lg hover:bg-amber-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors"
                     >
                         {isLoading ? 'Analyzing...' : `Analyze ${analysisType}`}
                     </button>
                 </div>
 
-                <div className="bg-black rounded-lg p-4 flex items-center justify-center">
+                <div className="bg-gray-900 rounded-lg p-4 flex items-center justify-center">
                     {isLoading && <LoadingSpinner />}
-                    {error && <p className="text-red-500">{error}</p>}
+                    {error && <p className="text-amber-500">{error}</p>}
                     {result && <div className="text-gray-200 whitespace-pre-wrap overflow-y-auto max-h-96">{result}</div>}
                     {!isLoading && !error && !result && <p className="text-gray-500">Analysis result will appear here.</p>}
                 </div>

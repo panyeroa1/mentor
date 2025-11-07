@@ -169,7 +169,7 @@ export const LiveAssistant: React.FC = () => {
 
     return (
         <div className="h-full flex flex-col items-center">
-            <h2 className="text-2xl font-bold text-red-400 mb-4">Live AI Assistant</h2>
+            <h2 className="text-2xl font-bold text-amber-400 mb-4">Live AI Assistant</h2>
             <p className="text-gray-400 mb-6">Have a real-time voice conversation with your AI tutor.</p>
             
             <div className="flex items-center gap-4 mb-4">
@@ -183,7 +183,7 @@ export const LiveAssistant: React.FC = () => {
                 <button
                     onClick={closeSession}
                     disabled={status === 'disconnected'}
-                    className="bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 disabled:bg-gray-600 transition-colors"
+                    className="bg-amber-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-amber-700 disabled:bg-gray-600 transition-colors"
                 >
                     End Session
                 </button>
@@ -192,22 +192,22 @@ export const LiveAssistant: React.FC = () => {
             <div className={`flex items-center gap-2 p-2 rounded-lg mb-4 ${
                 status === 'connected' ? 'bg-green-500/20 text-green-300' : 
                 status === 'connecting' ? 'bg-yellow-500/20 text-yellow-300' :
-                status === 'error' ? 'bg-red-500/20 text-red-300' :
+                status === 'error' ? 'bg-amber-500/20 text-amber-300' :
                 'bg-gray-800/50 text-gray-400'
             }`}>
                 <MicIcon className="w-5 h-5" />
                 <span>{statusText[status]}</span>
             </div>
             
-            {error && <p className="text-red-400 mb-4">{error}</p>}
+            {error && <p className="text-amber-400 mb-4">{error}</p>}
 
-            <div className="w-full flex-grow bg-black rounded-lg p-4 overflow-y-auto space-y-4">
+            <div className="w-full flex-grow bg-gray-900 rounded-lg p-4 overflow-y-auto space-y-4">
                 {transcriptionHistory.length === 0 && (
                     <p className="text-gray-500 text-center pt-8">Conversation transcript will appear here...</p>
                 )}
                 {transcriptionHistory.map((entry, index) => (
                     <div key={index} className={`flex ${entry.speaker === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-xl p-3 rounded-lg ${entry.speaker === 'user' ? 'bg-red-600' : 'bg-gray-800'}`}>
+                        <div className={`max-w-xl p-3 rounded-lg ${entry.speaker === 'user' ? 'bg-amber-600' : 'bg-gray-800'}`}>
                             <p className="font-bold capitalize text-sm mb-1 text-white">{entry.speaker}</p>
                             <p className="text-white">{entry.text}</p>
                         </div>

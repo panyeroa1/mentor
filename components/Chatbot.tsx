@@ -92,14 +92,14 @@ export const Chatbot: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col">
-      <h2 className="text-2xl font-bold text-red-400 mb-4">AI Chat Assistant</h2>
-      <div ref={chatContainerRef} className="flex-grow bg-black rounded-lg p-4 overflow-y-auto mb-4 space-y-4">
+      <h2 className="text-2xl font-bold text-amber-400 mb-4">AI Chat Assistant</h2>
+      <div ref={chatContainerRef} className="flex-grow bg-gray-900 rounded-lg p-4 overflow-y-auto mb-4 space-y-4">
         {messages.map((msg, index) => (
           <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-xl p-3 rounded-lg flex items-start gap-2 ${msg.role === 'user' ? 'bg-red-700' : 'bg-gray-800'}`}>
+            <div className={`max-w-xl p-3 rounded-lg flex items-start gap-2 ${msg.role === 'user' ? 'bg-amber-700' : 'bg-gray-800'}`}>
               <p className="whitespace-pre-wrap text-white">{msg.text}</p>
               {msg.role === 'model' && msg.text && (
-                 <button onClick={() => handlePlayAudio(msg.text)} disabled={!!playingAudio} className="text-red-300 hover:text-white disabled:opacity-50 transition-colors">
+                 <button onClick={() => handlePlayAudio(msg.text)} disabled={!!playingAudio} className="text-amber-300 hover:text-white disabled:opacity-50 transition-colors">
                     {playingAudio === msg.text ? <LoadingSpinner text="" /> : <SpeakerIcon className="w-5 h-5" />}
                  </button>
               )}
@@ -120,13 +120,13 @@ export const Chatbot: React.FC = () => {
           value={userInput}
           onChange={(e) => setUserInput(e.target.value)}
           placeholder="Ask me anything..."
-          className="flex-grow bg-gray-800 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+          className="flex-grow bg-gray-800 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-amber-500"
           disabled={isLoading}
         />
         <button
           type="submit"
           disabled={isLoading || !userInput.trim()}
-          className="bg-red-600 text-white font-bold py-3 px-5 rounded-lg hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors"
+          className="bg-amber-600 text-white font-bold py-3 px-5 rounded-lg hover:bg-amber-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors"
         >
           Send
         </button>

@@ -15,7 +15,7 @@ const FeedCard: React.FC<FeedCardProps> = ({ item }) => {
           <img src={item.author.avatar_url} alt={item.author.full_name} className="w-11 h-11 rounded-full mr-3" />
           <div>
             <p className="font-bold text-white">{item.author.full_name}</p>
-            <p className="text-xs text-gray-400">{item.created_at} &middot; <span className="capitalize font-semibold text-red-500">{item.type}</span></p>
+            <p className="text-xs text-gray-400">{item.created_at} &middot; <span className="capitalize font-semibold text-amber-500">{item.type}</span></p>
           </div>
         </div>
 

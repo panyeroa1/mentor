@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Screen } from '../Layout';
-import { HomeIcon, TrainingIcon, VideoIcon, ProfileIcon } from './icons';
+import { HomeIcon, AIToolsIcon, VideoIcon, ProfileIcon } from './icons';
 
 interface BottomNavProps {
   activeScreen: Screen;
@@ -9,14 +9,14 @@ interface BottomNavProps {
 
 const navItems: { screen: Screen; icon: React.FC<{ className?: string }> }[] = [
   { screen: 'Home', icon: HomeIcon },
-  { screen: 'Trainings', icon: TrainingIcon },
+  { screen: 'AITools', icon: AIToolsIcon },
   { screen: 'Videos', icon: VideoIcon },
   { screen: 'Profile', icon: ProfileIcon },
 ];
 
 const BottomNav: React.FC<BottomNavProps> = ({ activeScreen, setActiveScreen }) => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-gray-900 border-t border-gray-800 flex justify-around items-center md:hidden">
       {navItems.map(({ screen, icon: Icon }) => (
         <button
           key={screen}
@@ -24,12 +24,12 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeScreen, setActiveScreen }) 
           className="flex flex-col items-center justify-center w-full h-full"
         >
           <Icon className={`w-6 h-6 mb-1 transition-colors ${
-            activeScreen === screen ? 'text-red-500' : 'text-gray-400'
+            activeScreen === screen ? 'text-amber-500' : 'text-gray-400'
           }`} />
           <span className={`text-xs font-medium transition-colors ${
-            activeScreen === screen ? 'text-red-500' : 'text-gray-400'
+            activeScreen === screen ? 'text-amber-500' : 'text-gray-400'
           }`}>
-            {screen}
+            {screen === 'AITools' ? 'AI Tools' : screen}
           </span>
         </button>
       ))}
