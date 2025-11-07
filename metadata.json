@@ -1,0 +1,5 @@
+{
+  "name": "MentorHub",
+  "description": "A mobile-first social learning and presentation platform for mentors, trainers, and their clients. Built on Supabase and React.",
+  "requestFramePermissions": []
+}
