@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { supabase } from '../../supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
+import { storage, db } from '../../firebaseClient';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const VideosScreen: React.FC = () => {
   const { user } = useAuth();
@@ -30,91 +32,51 @@ const VideosScreen: React.FC = () => {
     setSuccessMessage(null);
     setUploadProgress(0);
 
-    const fileExt = selectedFile.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `${user.id}/${fileName}`;
+    const filePath = `${user.id}/${Date.now()}_${selectedFile.name}`;
+    const storageRef = ref(storage, filePath);
+    const uploadTask = uploadBytesResumable(storageRef, selectedFile);
 
-    try {
-      // 1. Get a signed URL for the upload
-      const { data: uploadUrlData, error: urlError } = await supabase.storage
-        .from('videos')
-        .createSignedUploadUrl(filePath);
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.total) * 100;
+        setUploadProgress(progress);
+      },
+      (error) => {
+        console.error("Upload failed:", error);
+        setError('An unexpected error occurred during upload. Please check your connection and try again.');
+        setIsUploading(false);
+      },
+      async () => {
+        // Upload completed successfully
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
-      if (urlError) throw urlError;
+          // Save metadata to Firestore
+          await addDoc(collection(db, 'videos'), {
+            owner_id: user.id,
+            title: selectedFile.name,
+            file_url: downloadURL,
+            visibility: 'private',
+            created_at: serverTimestamp(),
+            views_count: 0
+          });
 
-      const { signedUrl } = uploadUrlData;
+          setSuccessMessage('Video uploaded successfully!');
+          setSelectedFile(null);
 
-      // 2. Upload using XMLHttpRequest to track progress
-      const xhr = new XMLHttpRequest();
-      xhr.open('PUT', signedUrl, true);
-      xhr.setRequestHeader('Content-Type', selectedFile.type);
-
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const percentComplete = (event.loaded / event.total) * 100;
-          setUploadProgress(percentComplete);
-        }
-      };
-
-      xhr.onload = async () => {
-        if (xhr.status === 200) {
-            try {
-                // 3. Get the public URL of the uploaded file
-                const { data: urlData } = supabase.storage
-                    .from('videos')
-                    .getPublicUrl(filePath);
-
-                if (!urlData || !urlData.publicUrl) {
-                    throw new Error("Could not get public URL for the uploaded file.");
-                }
-
-                const publicUrl = urlData.publicUrl;
-
-                // 4. Insert video metadata into the 'videos' table
-                const { error: dbError } = await supabase.from('videos').insert({
-                    owner_id: user.id,
-                    title: selectedFile.name,
-                    file_url: publicUrl,
-                    visibility: 'private', // Default to private
-                });
-
-                if (dbError) throw dbError;
-                
-                setSuccessMessage('Video uploaded successfully!');
-                setSelectedFile(null);
-                
-                // Let the 100% progress bar show for a moment
-                setTimeout(() => {
-                    setIsUploading(false);
-                    setUploadProgress(null);
-                }, 1000);
-
-            } catch (e: any) {
-                setError(e.message || 'Failed to process video after upload.');
-                setIsUploading(false);
-                setUploadProgress(null);
-            }
-        } else {
-            setError(`Upload failed: ${xhr.statusText}`);
+          // Let the 100% progress bar show for a moment
+          setTimeout(() => {
             setIsUploading(false);
             setUploadProgress(null);
+          }, 1000);
+
+        } catch (e: any) {
+            console.error("Error saving metadata:", e);
+            setError(e.message || 'Failed to process video after upload.');
+            setIsUploading(false);
         }
-      };
-
-      xhr.onerror = () => {
-        setError('A network error occurred during the upload. Please check your connection.');
-        setIsUploading(false);
-        setUploadProgress(null);
-      };
-
-      xhr.send(selectedFile);
-
-    } catch (err: any) {
-      console.error('Upload failed:', err);
-      setError(err.message || 'An unexpected error occurred during upload.');
-      setIsUploading(false);
-      setUploadProgress(null);
-    }
+      }
+    );
   };
 
   return (

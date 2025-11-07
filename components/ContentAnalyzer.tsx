@@ -1,10 +1,12 @@
 
+
 import React, { useState, useCallback } from 'react';
 import { analyzeImage, analyzeVideo, transcribeAudio } from '../services/geminiService';
 import { fileToBase64 } from '../utils/fileUtils';
 import { LoadingSpinner } from './common/LoadingSpinner';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../supabaseClient';
+import { storage } from '../firebaseClient';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 type AnalysisType = 'Image' | 'Video' | 'Audio';
 
@@ -55,60 +57,35 @@ export const ContentAnalyzer: React.FC = () => {
         setResult('');
         setError('');
         setUploadProgress(0);
+        
+        const filePath = `${user.id}/analysis/${Date.now()}_${file.name}`;
+        const storageRef = ref(storage, filePath);
+        const uploadTask = uploadBytesResumable(storageRef, file);
 
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        const filePath = `${user.id}/analysis/${fileName}`;
-
-        try {
-            const { data: uploadUrlData, error: urlError } = await supabase.storage
-                .from('videos')
-                .createSignedUploadUrl(filePath);
-
-            if (urlError) throw urlError;
-            const { signedUrl } = uploadUrlData;
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('PUT', signedUrl, true);
-            xhr.setRequestHeader('Content-Type', file.type);
-
-            xhr.upload.onprogress = (event) => {
-                if (event.lengthComputable) {
-                    const percentComplete = (event.loaded / event.total) * 100;
-                    setUploadProgress(percentComplete);
-                }
-            };
-
-            xhr.onload = async () => {
-                if (xhr.status === 200) {
-                    try {
-                        const analysisResult = await analyzeVideo(prompt, file);
-                        setResult(analysisResult);
-                    } catch (e: any) {
-                        setError(e.message || 'Failed to analyze video after upload.');
-                    } finally {
-                        setIsLoading(false);
-                        setUploadProgress(null);
-                    }
-                } else {
-                    setError(`Upload failed: ${xhr.statusText}`);
-                    setIsLoading(false);
-                    setUploadProgress(null);
-                }
-            };
-
-            xhr.onerror = () => {
+        uploadTask.on('state_changed', 
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.total) * 100;
+                setUploadProgress(progress);
+            },
+            (error) => {
+                console.error("Upload failed:", error);
                 setError('A network error occurred during upload.');
                 setIsLoading(false);
                 setUploadProgress(null);
-            };
-
-            xhr.send(file);
-        } catch (err: any) {
-            setError(err.message || 'Failed to prepare video for upload.');
-            setIsLoading(false);
-            setUploadProgress(null);
-        }
+            },
+            async () => {
+                // Upload completed successfully, now analyze.
+                try {
+                    const analysisResult = await analyzeVideo(prompt, file);
+                    setResult(analysisResult);
+                } catch (e: any) {
+                    setError(e.message || 'Failed to analyze video after upload.');
+                } finally {
+                    setIsLoading(false);
+                    setUploadProgress(null);
+                }
+            }
+        );
     };
 
     const handleStandardSubmit = async () => {

@@ -1,13 +1,21 @@
 
 import React, { useState, useEffect, useContext, createContext, ReactNode } from 'react';
-import { supabase } from '../supabaseClient';
+import { auth, db } from '../firebaseClient';
 import type { Profile, UserRole } from '../types';
-import type { Session } from '@supabase/supabase-js';
+import { 
+    onAuthStateChanged, 
+    signInWithEmailAndPassword, 
+    createUserWithEmailAndPassword, 
+    signOut,
+    updateProfile as updateFirebaseProfile,
+    type User as FirebaseUser
+} from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 
 interface AuthContextType {
     user: Profile | null;
-    session: Session | null;
+    firebaseUser: FirebaseUser | null;
     login: (email: string, password: string) => Promise<any>;
     signup: (email: string, password: string, fullName: string, role: UserRole) => Promise<any>;
     logout: () => void;
@@ -18,75 +26,84 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<Profile | null>(null);
-    const [session, setSession] = useState<Session | null>(null);
+    const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        setLoading(true);
-        const getSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            setSession(session);
-            if (session?.user) {
-                const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-                setUser(profile as Profile);
-            }
-            setLoading(false);
-        };
-        getSession();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
-                setSession(session);
-                 if (session?.user) {
-                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-                    setUser(profile as Profile);
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            setFirebaseUser(user);
+            if (user) {
+                // Fetch profile from Firestore
+                const profileRef = doc(db, 'profiles', user.uid);
+                const profileSnap = await getDoc(profileRef);
+                if (profileSnap.exists()) {
+                    setUser(profileSnap.data() as Profile);
                 } else {
+                    // This case might happen if profile creation failed after signup
+                    // Or if a user exists in auth but not in profiles collection
+                    console.warn("User profile not found in Firestore for UID:", user.uid);
                     setUser(null);
                 }
+            } else {
+                setUser(null);
             }
-        );
+            setLoading(false);
+        });
 
-        return () => subscription.unsubscribe();
+        return () => unsubscribe();
     }, []);
 
     const login = async (email: string, password: string) => {
-        return supabase.auth.signInWithPassword({ email, password });
+        try {
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            return { user: userCredential.user, error: null };
+        } catch (error) {
+            return { user: null, error };
+        }
     };
 
     const signup = async (email: string, password: string, fullName: string, role: UserRole) => {
-        // The user's profile is now created automatically by a database trigger.
-        // We pass the full_name and role in the 'data' option, which the trigger can access.
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    full_name: fullName,
-                    role: role,
-                }
-            }
-        });
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const newUser = userCredential.user;
 
-        return { user: data.user, error };
+            // Update Firebase Auth profile with full name
+            await updateFirebaseProfile(newUser, { displayName: fullName });
+
+            // Create user profile document in Firestore
+            const profileData: Profile = {
+                id: newUser.uid,
+                full_name: fullName,
+                role: role,
+                avatar_url: `https://i.pravatar.cc/150?u=${newUser.uid}`,
+                bio: 'Welcome to Magnetar! Edit your bio in your profile.'
+            };
+            await setDoc(doc(db, "profiles", newUser.uid), profileData);
+            
+            setUser(profileData); // Immediately set user state
+            
+            return { user: newUser, error: null };
+        } catch (error) {
+            return { user: null, error };
+        }
     };
 
 
-    const logout = () => {
-        supabase.auth.signOut();
+    const logout = async () => {
+        await signOut(auth);
         setUser(null);
-        setSession(null);
+        setFirebaseUser(null);
     };
 
     const value = {
         user,
-        session,
+        firebaseUser,
         login,
         signup,
         logout,
         loading,
     };
 
-    // FIX: A .ts file cannot contain JSX. Rewriting with React.createElement to solve parsing errors.
     return React.createElement(AuthContext.Provider, { value: value }, children);
 };
 
