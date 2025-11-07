@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { supabase } from '../../supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
-import { LoadingSpinner } from '../common/LoadingSpinner';
 
 const VideosScreen: React.FC = () => {
   const { user } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -15,6 +15,7 @@ const VideosScreen: React.FC = () => {
       setSelectedFile(event.target.files[0]);
       setError(null);
       setSuccessMessage(null);
+      setUploadProgress(null);
     }
   };
 
@@ -27,51 +28,92 @@ const VideosScreen: React.FC = () => {
     setIsUploading(true);
     setError(null);
     setSuccessMessage(null);
+    setUploadProgress(0);
 
     const fileExt = selectedFile.name.split('.').pop();
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${user.id}/${fileName}`;
 
     try {
-      // 1. Upload the file to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      // 1. Get a signed URL for the upload
+      const { data: uploadUrlData, error: urlError } = await supabase.storage
         .from('videos')
-        .upload(filePath, selectedFile);
+        .createSignedUploadUrl(filePath);
 
-      if (uploadError) {
-        throw uploadError;
-      }
+      if (urlError) throw urlError;
 
-      // 2. Get the public URL of the uploaded file
-      const { data: urlData } = supabase.storage
-        .from('videos')
-        .getPublicUrl(filePath);
+      const { signedUrl } = uploadUrlData;
 
-      if (!urlData || !urlData.publicUrl) {
-          throw new Error("Could not get public URL for the uploaded file.");
-      }
-      
-      const publicUrl = urlData.publicUrl;
+      // 2. Upload using XMLHttpRequest to track progress
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', signedUrl, true);
+      xhr.setRequestHeader('Content-Type', selectedFile.type);
 
-      // 3. Insert the video metadata into the 'videos' table
-      const { error: dbError } = await supabase.from('videos').insert({
-        owner_id: user.id,
-        title: selectedFile.name,
-        file_url: publicUrl,
-        visibility: 'private', // Default to private
-      });
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          setUploadProgress(percentComplete);
+        }
+      };
 
-      if (dbError) {
-        throw dbError;
-      }
+      xhr.onload = async () => {
+        if (xhr.status === 200) {
+            try {
+                // 3. Get the public URL of the uploaded file
+                const { data: urlData } = supabase.storage
+                    .from('videos')
+                    .getPublicUrl(filePath);
 
-      setSuccessMessage('Video uploaded successfully!');
-      setSelectedFile(null);
+                if (!urlData || !urlData.publicUrl) {
+                    throw new Error("Could not get public URL for the uploaded file.");
+                }
+
+                const publicUrl = urlData.publicUrl;
+
+                // 4. Insert video metadata into the 'videos' table
+                const { error: dbError } = await supabase.from('videos').insert({
+                    owner_id: user.id,
+                    title: selectedFile.name,
+                    file_url: publicUrl,
+                    visibility: 'private', // Default to private
+                });
+
+                if (dbError) throw dbError;
+                
+                setSuccessMessage('Video uploaded successfully!');
+                setSelectedFile(null);
+                
+                // Let the 100% progress bar show for a moment
+                setTimeout(() => {
+                    setIsUploading(false);
+                    setUploadProgress(null);
+                }, 1000);
+
+            } catch (e: any) {
+                setError(e.message || 'Failed to process video after upload.');
+                setIsUploading(false);
+                setUploadProgress(null);
+            }
+        } else {
+            setError(`Upload failed: ${xhr.statusText}`);
+            setIsUploading(false);
+            setUploadProgress(null);
+        }
+      };
+
+      xhr.onerror = () => {
+        setError('A network error occurred during the upload. Please check your connection.');
+        setIsUploading(false);
+        setUploadProgress(null);
+      };
+
+      xhr.send(selectedFile);
+
     } catch (err: any) {
       console.error('Upload failed:', err);
       setError(err.message || 'An unexpected error occurred during upload.');
-    } finally {
       setIsUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -105,9 +147,17 @@ const VideosScreen: React.FC = () => {
                         {isUploading ? 'Uploading...' : 'Upload'}
                     </button>
                 </div>
-                {isUploading && (
-                    <div className="mt-4">
-                        <LoadingSpinner text="Uploading video, please wait." />
+                 {isUploading && (
+                    <div className="mt-4 space-y-2">
+                        <div className="w-full bg-gray-700 rounded-full h-2.5">
+                            <div
+                                className="bg-amber-500 h-2.5 rounded-full transition-all duration-300"
+                                style={{ width: `${uploadProgress || 0}%` }}
+                            ></div>
+                        </div>
+                        <p className="text-center text-sm text-gray-400">
+                            Uploading... {Math.round(uploadProgress || 0)}%
+                        </p>
                     </div>
                 )}
                  {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
