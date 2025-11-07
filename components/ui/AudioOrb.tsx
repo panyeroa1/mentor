@@ -4,7 +4,8 @@ interface AudioOrbProps {
   inputAnalyser: AnalyserNode | null;
   outputAnalyser: AnalyserNode | null;
   avatarUrl: string;
-  status: 'disconnected' | 'connecting' | 'connected' | 'error';
+  // FIX: Added 'ringing' to the status type to match the possible states from CallCenterAgent.
+  status: 'disconnected' | 'ringing' | 'connecting' | 'connected' | 'error';
 }
 
 export const AudioOrb: React.FC<AudioOrbProps> = ({ inputAnalyser, outputAnalyser, avatarUrl, status }) => {

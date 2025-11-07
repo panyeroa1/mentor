@@ -1,8 +1,11 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import { EditProfile } from '../EditProfile';
 
 const ProfileScreen: React.FC = () => {
     const { user, logout } = useAuth();
+    const [isEditing, setIsEditing] = useState(false);
 
     if (!user) {
         return <p>Loading profile...</p>;
@@ -33,15 +36,25 @@ const ProfileScreen: React.FC = () => {
                             <p className="text-xs text-gray-400">Followers</p>
                         </div>
                     </div>
+                    
+                    <div className="w-full max-w-xs space-y-2">
+                        <button
+                            onClick={() => setIsEditing(true)}
+                            className="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-md hover:bg-gray-600 transition-colors"
+                        >
+                            Edit Profile
+                        </button>
+                        <button
+                            onClick={logout}
+                            className="w-full bg-amber-600 text-white font-bold py-2 px-4 rounded-md hover:bg-amber-700 transition-colors"
+                        >
+                            Log Out
+                        </button>
+                    </div>
 
-                    <button
-                        onClick={logout}
-                        className="w-full max-w-xs bg-amber-600 text-white font-bold py-2 px-4 rounded-md hover:bg-amber-700 transition-colors"
-                    >
-                        Log Out
-                    </button>
                 </div>
             </div>
+            {isEditing && <EditProfile user={user} onClose={() => setIsEditing(false)} />}
         </div>
     );
 };

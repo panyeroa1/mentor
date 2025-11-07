@@ -64,6 +64,20 @@ const addToDB = <T>(storeName: string, item: T): Promise<void> => {
   });
 };
 
+const updateInDB = <T>(storeName: string, item: T): Promise<void> => {
+  return new Promise(async (resolve, reject) => {
+    const db = await initDB();
+    const transaction = db.transaction(storeName, 'readwrite');
+    const store = transaction.objectStore(storeName);
+    const request = store.put(item);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const updateProfileInDB = (profile: Profile) => updateInDB(PROFILE_STORE, profile);
+
+
 // --- Video Specific DB Functions ---
 export interface StoredVideo {
     id: string;
@@ -118,6 +132,7 @@ interface AuthContextType {
     user: Profile | null;
     logout: () => void;
     loading: boolean;
+    updateUser: (profile: Profile) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -171,7 +186,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         window.location.reload(); 
     };
 
-    const value = { user, logout, loading };
+    const updateUser = async (profile: Profile) => {
+        try {
+            await updateProfileInDB(profile);
+            setUser(profile);
+        } catch (error) {
+            console.error("Failed to update user profile:", error);
+            throw error;
+        }
+    };
+
+    const value = { user, logout, loading, updateUser };
 
     return React.createElement(AuthContext.Provider, { value }, children);
 };
