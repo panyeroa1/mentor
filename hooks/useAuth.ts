@@ -54,22 +54,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const signup = async (email: string, password: string, fullName: string, role: UserRole) => {
-        const { data: authData, error: authError } = await supabase.auth.signUp({ 
-            email, 
-            password
+        // The user's profile is now created automatically by a database trigger.
+        // We pass the full_name and role in the 'data' option, which the trigger can access.
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    full_name: fullName,
+                    role: role,
+                }
+            }
         });
-        
-        if (authError) return { user: null, error: authError };
 
-        if (authData.user) {
-            const { error: profileError } = await supabase.from('profiles').insert({
-                id: authData.user.id,
-                full_name: fullName,
-                role,
-            });
-            return { user: authData.user, error: profileError };
-        }
-        return { user: null, error: new Error('User not created') };
+        return { user: data.user, error };
     };
 
 
