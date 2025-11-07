@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { AIToolsIcon, BackIcon, CommentIcon, LightbulbIcon, MessageIcon, ScriptIcon, ShieldIcon, VideoIcon } from '../ui/icons';
+import { AIToolsIcon, BackIcon, CommentIcon, LightbulbIcon, MessageIcon, PhoneIcon, ScriptIcon, ShieldIcon, VideoIcon } from '../ui/icons';
 import { runQuickResponse } from '../../services/geminiService';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 
@@ -10,6 +11,7 @@ import { ImageGenerator } from '../ImageGenerator';
 import { LiveAssistant } from '../LiveAssistant';
 import { ResearchAssistant } from '../ResearchAssistant';
 import { DeepDive } from '../DeepDive';
+import { CallCenterAgent } from '../CallCenterAgent';
 
 interface PromptInfo {
     placeholder: string;
@@ -40,6 +42,7 @@ const allTools: Tool[] = [
     { id: 'follow_up', name: 'Lead Follow-up Helper', description: 'Generate a sequence of follow-up messages.', icon: MessageIcon, promptInfo: { placeholder: 'Describe the lead and the last interaction. E.g., "A prospect named Maria attended our webinar yesterday but hasn\'t replied yet."', systemPrompt: 'You are a sales follow-up expert. Write a friendly, non-annoying 3-message follow-up sequence (spaced out over a few days) for the following lead:' } },
     
     // Existing Tools
+    { id: 'call_center_agent', name: 'Live Agent Call', description: 'Speak with Vanessa, an Ascendra presenter.', icon: PhoneIcon, component: <CallCenterAgent /> },
     { id: 'chatbot', name: 'AI Chat Assistant', description: 'A friendly AI to answer your questions.', icon: CommentIcon, component: <Chatbot /> },
     { id: 'content_analyzer', name: 'Content Analyzer', description: 'Analyze images, video, or audio files.', icon: AIToolsIcon, component: <ContentAnalyzer /> },
     { id: 'image_editor', name: 'AI Image Editor', description: 'Edit images with text prompts.', icon: AIToolsIcon, component: <ImageEditor /> },
