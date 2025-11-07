@@ -1,7 +1,8 @@
 
 
+
 import React, { useState } from 'react';
-import { AIToolsIcon, BackIcon, CommentIcon, LightbulbIcon, MessageIcon, PhoneIcon, ProfileIcon, ScriptIcon, ShieldIcon, VideoIcon } from '../ui/icons';
+import { AIToolsIcon, BackIcon, CommentIcon, LightbulbIcon, MessageIcon, ProfileIcon, ScriptIcon, ShieldIcon, VideoIcon } from '../ui/icons';
 import { runQuickResponse } from '../../services/geminiService';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 
@@ -12,7 +13,6 @@ import { ImageGenerator } from '../ImageGenerator';
 import { LiveAssistant } from '../LiveAssistant';
 import { ResearchAssistant } from '../ResearchAssistant';
 import { DeepDive } from '../DeepDive';
-import { CallCenterAgent } from '../CallCenterAgent';
 
 interface PromptInfo {
     placeholder: string;
@@ -33,7 +33,7 @@ const allTools: Tool[] = [
     // MLM Tools
     { id: 'prospect', name: 'Prospecting Messages', description: 'Generate personalized outreach messages.', icon: MessageIcon, promptInfo: { placeholder: 'Describe your ideal prospect. E.g., "A 35-year-old working mom in the Philippines who is interested in health and wellness products and looking for a side income."', systemPrompt: 'You are an expert network marketing script writer. Generate 3 friendly, non-pushy, and engaging Facebook Messenger outreach messages for the following prospect:' } },
     { id: 'product_post', name: 'Product Posts', description: 'Create engaging social media posts for products.', icon: AIToolsIcon, promptInfo: { placeholder: 'Enter product name and key benefits. E.g., "Ascendra Coffee, helps with weight loss, boosts energy, contains Glutathione."', systemPrompt: 'You are a social media marketing expert for an MLM company. Write an exciting and benefit-focused Facebook post for the following product. Include emojis and a call-to-action.' } },
-    { id: 'objection_handler', name: 'Objection Handler', description: 'Get smart rebuttals to common objections.', icon: CommentIcon, promptInfo: { placeholder: 'Enter the prospect\'s objection. E.g., "Is this a pyramid scheme?" or "I don\'t have time for this."', systemPrompt: 'You are a veteran network marketing coach. Provide a confident, respectful, and effective response to the following prospect objection:' } },
+    { id: 'objection_handler', name: 'Objection Handler', description: 'Get smart rebuttals to common objections.', icon: CommentIcon, promptInfo: { placeholder: 'Enter the prospect\'s objection. E.g., "Is this a pyramid scheme?" or "I don\'t have time for this."', systemPrompt: 'You are a veteran network marketing coach. Provide a confident, respectful, and effective response to the following prospect objection. Your tone should be friendly and non-confrontational, aiming to educate and build rapport, not to win an argument.' } },
     { id: 'training_script', name: 'Training Script Writer', description: 'Create scripts for training new downlines.', icon: ScriptIcon, promptInfo: { placeholder: 'Enter the training topic. E.g., "How to do a product demo for Ascendra Coffee" or "Explaining the compensation plan basics."', systemPrompt: 'You are an MLM training director. Write a clear, step-by-step training script for new distributors on the following topic:' } },
     { id: 'presentation_builder', name: 'Presentation Builder', description: 'Generate outlines for opportunity presentations.', icon: ScriptIcon, promptInfo: { placeholder: 'Enter the target audience for the presentation. E.g., "A group of college students" or "A room of experienced sales professionals."', systemPrompt: 'You are a master presenter. Create a compelling 5-point outline for a business opportunity presentation for the following audience:' } },
     { id: 'video_script', name: 'Short Video Scripts', description: 'Create scripts for TikTok, Reels, and Shorts.', icon: VideoIcon, promptInfo: { placeholder: 'Describe the video\'s goal. E.g., "A 30-second video showing the benefits of our new skincare product" or "A quick teaser for our upcoming business seminar."', systemPrompt: 'You are a viral video scriptwriter. Create a short, punchy, and engaging video script (including visual cues) for the following goal:' } },
@@ -53,7 +53,6 @@ const allTools: Tool[] = [
     },
     
     // Existing Tools
-    { id: 'call_center_agent', name: 'Live Agent Call', description: 'Speak with Vanessa, an Ascendra presenter.', icon: PhoneIcon, component: <CallCenterAgent /> },
     { id: 'chatbot', name: 'AI Chat Assistant', description: 'A friendly AI to answer your questions.', icon: CommentIcon, component: <Chatbot /> },
     { id: 'content_analyzer', name: 'Content Analyzer', description: 'Analyze images, video, or audio files.', icon: AIToolsIcon, component: <ContentAnalyzer /> },
     { id: 'image_editor', name: 'AI Image Editor', description: 'Edit images with text prompts.', icon: AIToolsIcon, component: <ImageEditor /> },

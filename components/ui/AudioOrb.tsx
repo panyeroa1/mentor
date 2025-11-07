@@ -10,7 +10,8 @@ interface AudioOrbProps {
 export const AudioOrb: React.FC<AudioOrbProps> = ({ inputAnalyser, outputAnalyser, avatarUrl, status }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const avatarImageRef = useRef<HTMLImageElement | null>(null);
-  const animationFrameId = useRef<number>();
+  // FIX: Initialize useRef with null and update the type to be nullable to fix the TypeScript error.
+  const animationFrameId = useRef<number | null>(null);
 
   useEffect(() => {
     // FIX: Replaced `new Image()` with `document.createElement('img')` to resolve "Expected 1 arguments, but got 0" error.

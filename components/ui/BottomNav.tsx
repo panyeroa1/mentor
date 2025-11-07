@@ -1,6 +1,7 @@
+
 import React from 'react';
 import type { Screen } from '../Layout';
-import { HomeIcon, AIToolsIcon, VideoIcon, ProfileIcon } from './icons';
+import { HomeIcon, AIToolsIcon, VideoIcon, ProfileIcon, PhoneIcon } from './icons';
 
 interface BottomNavProps {
   activeScreen: Screen;
@@ -10,6 +11,7 @@ interface BottomNavProps {
 const navItems: { screen: Screen; icon: React.FC<{ className?: string }> }[] = [
   { screen: 'Home', icon: HomeIcon },
   { screen: 'AITools', icon: AIToolsIcon },
+  { screen: 'Call', icon: PhoneIcon },
   { screen: 'Videos', icon: VideoIcon },
   { screen: 'Profile', icon: ProfileIcon },
 ];

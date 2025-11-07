@@ -1,15 +1,18 @@
+
 import React, { useState } from 'react';
 import BottomNav from './ui/BottomNav';
 import HomeScreen from './screens/HomeScreen';
 import AIToolsScreen from './screens/AIToolsScreen';
 import VideosScreen from './screens/VideosScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import { CallCenterAgent } from './CallCenterAgent';
 
-export type Screen = 'Home' | 'AITools' | 'Videos' | 'Profile';
+export type Screen = 'Home' | 'AITools' | 'Call' | 'Videos' | 'Profile';
 
 const screens: Record<Screen, React.FC> = {
   Home: HomeScreen,
   AITools: AIToolsScreen,
+  Call: CallCenterAgent,
   Videos: VideosScreen,
   Profile: ProfileScreen,
 };
