@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 // FIX: Removed non-exported `LiveSession` type.
 import { GoogleGenAI, LiveServerMessage, Modality, Blob } from '@google/genai';
@@ -11,6 +12,17 @@ const MicIcon = ({ className = "w-6 h-6" }: { className?: string }) => (
     </svg>
 );
   
+function createBlob(data: Float32Array): Blob {
+  const l = data.length;
+  const int16 = new Int16Array(l);
+  for (let i = 0; i < l; i++) {
+    int16[i] = data[i] * 32768;
+  }
+  return {
+    data: encode(new Uint8Array(int16.buffer)),
+    mimeType: 'audio/pcm;rate=16000',
+  };
+}
 
 export const LiveAssistant: React.FC = () => {
     const [status, setStatus] = useState<SessionStatus>('disconnected');
@@ -27,8 +39,8 @@ export const LiveAssistant: React.FC = () => {
     const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
     const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
-    let nextStartTime = 0;
-    const sources = new Set<AudioBufferSourceNode>();
+    const nextStartTimeRef = useRef(0);
+    const sourcesRef = useRef(new Set<AudioBufferSourceNode>());
     
     const startSession = async () => {
         if (status === 'connecting' || status === 'connected') return;
@@ -49,7 +61,7 @@ export const LiveAssistant: React.FC = () => {
 
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
-            sessionRef.current = ai.live.connect({
+            const sessionPromise = ai.live.connect({
                 model: 'gemini-2.5-flash-native-audio-preview-09-2025',
                 callbacks: {
                     onopen: () => {
@@ -62,11 +74,8 @@ export const LiveAssistant: React.FC = () => {
 
                         scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
                             const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
-                            const pcmBlob: Blob = {
-                                data: encode(new Uint8Array(new Int16Array(inputData.map(v => v * 32768)).buffer)),
-                                mimeType: 'audio/pcm;rate=16000',
-                            };
-                            sessionRef.current?.then((session: any) => {
+                            const pcmBlob = createBlob(inputData);
+                            sessionPromise.then((session: any) => {
                                 session.sendRealtimeInput({ media: pcmBlob });
                             });
                         };
@@ -96,22 +105,22 @@ export const LiveAssistant: React.FC = () => {
                         // Handle audio output
                         const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData.data;
                         if (base64Audio) {
-                            nextStartTime = Math.max(nextStartTime, outputAudioContextRef.current!.currentTime);
+                            const nextStartTime = Math.max(nextStartTimeRef.current, outputAudioContextRef.current!.currentTime);
                             const audioBuffer = await decodeAudioData(decode(base64Audio), outputAudioContextRef.current!, 24000, 1);
                             const source = outputAudioContextRef.current!.createBufferSource();
                             source.buffer = audioBuffer;
                             source.connect(outputAudioContextRef.current!.destination);
-                            source.addEventListener('ended', () => sources.delete(source));
+                            source.addEventListener('ended', () => sourcesRef.current.delete(source));
                             source.start(nextStartTime);
-                            nextStartTime += audioBuffer.duration;
-                            sources.add(source);
+                            nextStartTimeRef.current = nextStartTime + audioBuffer.duration;
+                            sourcesRef.current.add(source);
                         }
                          if (message.serverContent?.interrupted) {
-                            for (const source of sources.values()) {
+                            for (const source of sourcesRef.current.values()) {
                                 source.stop();
-                                sources.delete(source);
                             }
-                            nextStartTime = 0;
+                            sourcesRef.current.clear();
+                            nextStartTimeRef.current = 0;
                         }
                     },
                     onclose: () => setStatus('disconnected'),
@@ -129,6 +138,8 @@ export const LiveAssistant: React.FC = () => {
                     systemInstruction: 'You are a friendly and helpful tutor on the E-Learn Social platform. Keep your answers conversational and encouraging.',
                 },
             });
+
+            sessionRef.current = sessionPromise;
 
         } catch (err) {
             console.error("Failed to start session:", err);
@@ -149,6 +160,9 @@ export const LiveAssistant: React.FC = () => {
         
         mediaStreamSourceRef.current?.disconnect();
         mediaStreamSourceRef.current = null;
+
+        sourcesRef.current.clear();
+        nextStartTimeRef.current = 0;
 
         setStatus('disconnected');
     };
