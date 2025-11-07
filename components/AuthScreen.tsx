@@ -23,7 +23,7 @@ const AuthScreen: React.FC = () => {
     if (mode === 'login') {
         result = await login(email, password);
     } else {
-        result = await signup(email, password, fullName, role);
+        result = await signup(email, fullName, role);
     }
 
     if (result.error) {

@@ -1,23 +1,109 @@
 
 import React, { useState, useEffect, useContext, createContext, ReactNode } from 'react';
-import { auth, db } from '../firebaseClient';
-import type { Profile, UserRole } from '../types';
-import { 
-    onAuthStateChanged, 
-    signInWithEmailAndPassword, 
-    createUserWithEmailAndPassword, 
-    signOut,
-    updateProfile as updateFirebaseProfile,
-    type User as FirebaseUser
-} from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import type { Profile, UserRole, Video } from '../types';
+
+// --- IndexedDB Utility Functions ---
+
+const DB_NAME = 'MagnetarDB';
+const DB_VERSION = 1;
+const PROFILE_STORE = 'profiles';
+const VIDEO_STORE = 'videos';
+
+let db: IDBDatabase;
+
+const initDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    if (db) return resolve(db);
+
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onerror = () => reject('Error opening database');
+    request.onsuccess = () => {
+      db = request.result;
+      resolve(db);
+    };
+    request.onupgradeneeded = (event) => {
+      const dbInstance = (event.target as IDBOpenDBRequest).result;
+      if (!dbInstance.objectStoreNames.contains(PROFILE_STORE)) {
+        const profileStore = dbInstance.createObjectStore(PROFILE_STORE, { keyPath: 'id' });
+        profileStore.createIndex('email', 'email', { unique: true });
+      }
+      if (!dbInstance.objectStoreNames.contains(VIDEO_STORE)) {
+        const videoStore = dbInstance.createObjectStore(VIDEO_STORE, { keyPath: 'id' });
+        videoStore.createIndex('owner_id', 'owner_id', { unique: false });
+      }
+    };
+  });
+};
+
+const getFromDB = <T>(storeName: string, key: string): Promise<T | undefined> => {
+  return new Promise(async (resolve, reject) => {
+    const db = await initDB();
+    const transaction = db.transaction(storeName, 'readonly');
+    const store = transaction.objectStore(storeName);
+    const request = store.get(key);
+    request.onsuccess = () => resolve(request.result as T);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const getFromDBByIndex = <T>(storeName: string, indexName: string, query: string): Promise<T | undefined> => {
+    return new Promise(async (resolve, reject) => {
+        const db = await initDB();
+        const transaction = db.transaction(storeName, 'readonly');
+        const store = transaction.objectStore(storeName);
+        const index = store.index(indexName);
+        const request = index.get(query);
+        request.onsuccess = () => resolve(request.result as T);
+        request.onerror = () => reject(request.error);
+    });
+};
 
 
+const addToDB = <T>(storeName: string, item: T): Promise<void> => {
+  return new Promise(async (resolve, reject) => {
+    const db = await initDB();
+    const transaction = db.transaction(storeName, 'readwrite');
+    const store = transaction.objectStore(storeName);
+    const request = store.add(item);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
+// --- Video Specific DB Functions ---
+interface StoredVideo {
+    id: string;
+    owner_id: string;
+    title: string;
+    description?: string;
+    file: File;
+    thumbnail_url?: string;
+    visibility: 'public' | 'unlisted' | 'private';
+    views_count: number;
+    created_at: Date;
+}
+
+export const addVideoToDB = (video: StoredVideo) => addToDB(VIDEO_STORE, video);
+
+export const getVideosFromDB = (ownerId: string): Promise<StoredVideo[]> => {
+    return new Promise(async (resolve, reject) => {
+        const db = await initDB();
+        const transaction = db.transaction(VIDEO_STORE, 'readonly');
+        const store = transaction.objectStore(VIDEO_STORE);
+        const index = store.index('owner_id');
+        const request = index.getAll(ownerId);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+
+// --- Auth Context ---
 interface AuthContextType {
     user: Profile | null;
-    firebaseUser: FirebaseUser | null;
-    login: (email: string, password: string) => Promise<any>;
-    signup: (email: string, password: string, fullName: string, role: UserRole) => Promise<any>;
+    login: (email: string, password: string) => Promise<{ user?: Profile; error?: Error }>;
+    signup: (email: string, fullName: string, role: UserRole) => Promise<{ user?: Profile; error?: Error }>;
     logout: () => void;
     loading: boolean;
 }
@@ -26,85 +112,76 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<Profile | null>(null);
-    const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            setFirebaseUser(user);
-            if (user) {
-                // Fetch profile from Firestore
-                const profileRef = doc(db, 'profiles', user.uid);
-                const profileSnap = await getDoc(profileRef);
-                if (profileSnap.exists()) {
-                    setUser(profileSnap.data() as Profile);
-                } else {
-                    // This case might happen if profile creation failed after signup
-                    // Or if a user exists in auth but not in profiles collection
-                    console.warn("User profile not found in Firestore for UID:", user.uid);
-                    setUser(null);
+        const loadUserFromStorage = async () => {
+            try {
+                const userId = localStorage.getItem('currentUser');
+                if (userId) {
+                    const profile = await getFromDB<Profile>(PROFILE_STORE, userId);
+                    if (profile) {
+                        setUser(profile);
+                    }
                 }
-            } else {
-                setUser(null);
+            } catch (error) {
+                console.error("Failed to load user from storage:", error);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
+        };
+        loadUserFromStorage();
     }, []);
 
-    const login = async (email: string, password: string) => {
+    const login = async (email: string, password: string): Promise<{ user?: Profile; error?: Error }> => {
+        // NOTE: Password is not checked as this is an insecure local-only DB.
         try {
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            return { user: userCredential.user, error: null };
+            const profile = await getFromDBByIndex<Profile & { email: string }>(PROFILE_STORE, 'email', email);
+            if (profile) {
+                localStorage.setItem('currentUser', profile.id);
+                setUser(profile);
+                return { user: profile };
+            }
+            return { error: new Error('User not found.') };
         } catch (error) {
-            return { user: null, error };
+            return { error: error as Error };
         }
     };
 
-    const signup = async (email: string, password: string, fullName: string, role: UserRole) => {
+    const signup = async (email: string, fullName: string, role: UserRole): Promise<{ user?: Profile; error?: Error }> => {
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const newUser = userCredential.user;
+            const existingUser = await getFromDBByIndex(PROFILE_STORE, 'email', email);
+            if (existingUser) {
+                return { error: new Error("An account with this email already exists.") };
+            }
 
-            // Update Firebase Auth profile with full name
-            await updateFirebaseProfile(newUser, { displayName: fullName });
-
-            // Create user profile document in Firestore
-            const profileData: Profile = {
-                id: newUser.uid,
+            const userId = crypto.randomUUID();
+            const profileData: Profile & { email: string } = {
+                id: userId,
                 full_name: fullName,
                 role: role,
-                avatar_url: `https://i.pravatar.cc/150?u=${newUser.uid}`,
-                bio: 'Welcome to Magnetar! Edit your bio in your profile.'
+                avatar_url: `https://i.pravatar.cc/150?u=${userId}`,
+                bio: 'Welcome to Magnetar! Edit your bio in your profile.',
+                email: email, // Storing email for login lookup
             };
-            await setDoc(doc(db, "profiles", newUser.uid), profileData);
-            
-            setUser(profileData); // Immediately set user state
-            
-            return { user: newUser, error: null };
+
+            await addToDB(PROFILE_STORE, profileData);
+            localStorage.setItem('currentUser', userId);
+            setUser(profileData);
+            return { user: profileData };
         } catch (error) {
-            return { user: null, error };
+             return { error: error as Error };
         }
     };
 
-
-    const logout = async () => {
-        await signOut(auth);
+    const logout = () => {
+        localStorage.removeItem('currentUser');
         setUser(null);
-        setFirebaseUser(null);
     };
 
-    const value = {
-        user,
-        firebaseUser,
-        login,
-        signup,
-        logout,
-        loading,
-    };
+    const value = { user, login, signup, logout, loading };
 
-    return React.createElement(AuthContext.Provider, { value: value }, children);
+    return React.createElement(AuthContext.Provider, { value }, children);
 };
 
 export const useAuth = () => {

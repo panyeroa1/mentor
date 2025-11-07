@@ -1,23 +1,53 @@
-import React, { useState } from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import { storage, db } from '../../firebaseClient';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { useAuth, addVideoToDB, getVideosFromDB } from '../../hooks/useAuth';
+import { VideoIcon } from '../ui/icons';
+
+// Define a type for videos fetched from DB, which includes the raw File object
+interface LocalVideo {
+  id: string;
+  owner_id: string;
+  title: string;
+  file: File;
+  created_at: Date;
+}
+
+// Define a type for videos ready for rendering, with an object URL
+interface PlayableVideo extends Omit<LocalVideo, 'file'> {
+    url: string;
+}
 
 const VideosScreen: React.FC = () => {
   const { user } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [videos, setVideos] = useState<PlayableVideo[]>([]);
+
+  const fetchVideos = async () => {
+    if (!user) return;
+    const storedVideos = await getVideosFromDB(user.id);
+    const playableVideos = storedVideos.map(v => ({
+      ...v,
+      url: URL.createObjectURL(v.file)
+    }));
+    setVideos(playableVideos);
+  };
+
+  useEffect(() => {
+    fetchVideos();
+
+    // Cleanup object URLs on component unmount
+    return () => {
+      videos.forEach(video => URL.revokeObjectURL(video.url));
+    };
+  }, [user]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       setSelectedFile(event.target.files[0]);
       setError(null);
       setSuccessMessage(null);
-      setUploadProgress(null);
     }
   };
 
@@ -30,53 +60,30 @@ const VideosScreen: React.FC = () => {
     setIsUploading(true);
     setError(null);
     setSuccessMessage(null);
-    setUploadProgress(0);
 
-    const filePath = `${user.id}/${Date.now()}_${selectedFile.name}`;
-    const storageRef = ref(storage, filePath);
-    const uploadTask = uploadBytesResumable(storageRef, selectedFile);
-
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.total) * 100;
-        setUploadProgress(progress);
-      },
-      (error) => {
-        console.error("Upload failed:", error);
-        setError('An unexpected error occurred during upload. Please check your connection and try again.');
-        setIsUploading(false);
-      },
-      async () => {
-        // Upload completed successfully
-        try {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-
-          // Save metadata to Firestore
-          await addDoc(collection(db, 'videos'), {
+    try {
+        const videoData = {
+            id: crypto.randomUUID(),
             owner_id: user.id,
             title: selectedFile.name,
-            file_url: downloadURL,
-            visibility: 'private',
-            created_at: serverTimestamp(),
+            file: selectedFile,
+            visibility: 'private' as const,
+            created_at: new Date(),
             views_count: 0
-          });
+        };
 
-          setSuccessMessage('Video uploaded successfully!');
-          setSelectedFile(null);
+        await addVideoToDB(videoData);
+        
+        setSuccessMessage('Video saved to your local library!');
+        setSelectedFile(null);
+        await fetchVideos(); // Refresh video list
 
-          // Let the 100% progress bar show for a moment
-          setTimeout(() => {
-            setIsUploading(false);
-            setUploadProgress(null);
-          }, 1000);
-
-        } catch (e: any) {
-            console.error("Error saving metadata:", e);
-            setError(e.message || 'Failed to process video after upload.');
-            setIsUploading(false);
-        }
-      }
-    );
+    } catch (e: any) {
+        console.error("Error saving video:", e);
+        setError(e.message || 'Failed to save video to the local database.');
+    } finally {
+        setIsUploading(false);
+    }
   };
 
   return (
@@ -89,7 +96,7 @@ const VideosScreen: React.FC = () => {
         <div className="max-w-3xl mx-auto p-4">
              {/* Upload Section */}
             <div className="bg-gray-800 p-4 rounded-lg mb-6">
-                <h2 className="text-lg font-semibold text-white mb-3">Upload New Video</h2>
+                <h2 className="text-lg font-semibold text-white mb-3">Add New Video to Library</h2>
                 <div className="flex flex-col sm:flex-row gap-4 items-center">
                     <label className="flex-grow w-full sm:w-auto px-4 py-2 bg-gray-700 text-white rounded-md cursor-pointer text-center hover:bg-gray-600 transition-colors truncate">
                         <span>{selectedFile ? selectedFile.name : 'Choose a file...'}</span>
@@ -106,29 +113,33 @@ const VideosScreen: React.FC = () => {
                         disabled={!selectedFile || isUploading}
                         className="w-full sm:w-auto bg-amber-600 text-white font-bold py-2 px-6 rounded-md hover:bg-amber-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
                     >
-                        {isUploading ? 'Uploading...' : 'Upload'}
+                        {isUploading ? 'Saving...' : 'Save to Library'}
                     </button>
                 </div>
-                 {isUploading && (
-                    <div className="mt-4 space-y-2">
-                        <div className="w-full bg-gray-700 rounded-full h-2.5">
-                            <div
-                                className="bg-amber-500 h-2.5 rounded-full transition-all duration-300"
-                                style={{ width: `${uploadProgress || 0}%` }}
-                            ></div>
-                        </div>
-                        <p className="text-center text-sm text-gray-400">
-                            Uploading... {Math.round(uploadProgress || 0)}%
-                        </p>
-                    </div>
-                )}
                  {error && <p className="text-red-500 text-sm mt-3">{error}</p>}
                  {successMessage && <p className="text-green-500 text-sm mt-3">{successMessage}</p>}
             </div>
             
-            <div className="text-center">
-                <p className="text-gray-400 mt-8">Your private video library will appear here.</p>
-            </div>
+            {/* Video List */}
+            {videos.length > 0 ? (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {videos.map(video => (
+                        <div key={video.id} className="bg-gray-800 rounded-lg overflow-hidden">
+                             <video controls src={video.url} className="w-full h-32 object-cover bg-black"></video>
+                             <div className="p-3">
+                                <p className="text-white font-semibold text-sm truncate" title={video.title}>{video.title}</p>
+                                <p className="text-gray-400 text-xs">{video.created_at.toLocaleDateString()}</p>
+                             </div>
+                        </div>
+                    ))}
+                 </div>
+            ) : (
+                <div className="text-center py-16">
+                    <VideoIcon className="w-12 h-12 mx-auto text-gray-600 mb-4"/>
+                    <h3 className="text-lg font-semibold text-white">Your Library is Empty</h3>
+                    <p className="text-gray-400 mt-1">Add a video using the form above to get started.</p>
+                </div>
+            )}
         </div>
     </div>
   );

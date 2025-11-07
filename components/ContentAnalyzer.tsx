@@ -1,12 +1,11 @@
 
 
+
 import React, { useState, useCallback } from 'react';
 import { analyzeImage, analyzeVideo, transcribeAudio } from '../services/geminiService';
 import { fileToBase64 } from '../utils/fileUtils';
 import { LoadingSpinner } from './common/LoadingSpinner';
 import { useAuth } from '../hooks/useAuth';
-import { storage } from '../firebaseClient';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 type AnalysisType = 'Image' | 'Video' | 'Audio';
 
@@ -25,7 +24,6 @@ export const ContentAnalyzer: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [filePreview, setFilePreview] = useState<string | null>(null);
-    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
@@ -33,7 +31,6 @@ export const ContentAnalyzer: React.FC = () => {
             setFile(selectedFile);
             setResult('');
             setError('');
-            setUploadProgress(null);
             if (selectedFile.type.startsWith('image/')) {
                 setFilePreview(URL.createObjectURL(selectedFile));
             } else if (selectedFile.type.startsWith('audio/')) {
@@ -49,43 +46,22 @@ export const ContentAnalyzer: React.FC = () => {
     const handleVideoSubmit = async () => {
         if (!file) return;
         if (!user) {
-            setError('You must be logged in to upload and analyze videos.');
+            setError('You must be logged in to analyze videos.');
             return;
         }
 
         setIsLoading(true);
         setResult('');
         setError('');
-        setUploadProgress(0);
         
-        const filePath = `${user.id}/analysis/${Date.now()}_${file.name}`;
-        const storageRef = ref(storage, filePath);
-        const uploadTask = uploadBytesResumable(storageRef, file);
-
-        uploadTask.on('state_changed', 
-            (snapshot) => {
-                const progress = (snapshot.bytesTransferred / snapshot.total) * 100;
-                setUploadProgress(progress);
-            },
-            (error) => {
-                console.error("Upload failed:", error);
-                setError('A network error occurred during upload.');
-                setIsLoading(false);
-                setUploadProgress(null);
-            },
-            async () => {
-                // Upload completed successfully, now analyze.
-                try {
-                    const analysisResult = await analyzeVideo(prompt, file);
-                    setResult(analysisResult);
-                } catch (e: any) {
-                    setError(e.message || 'Failed to analyze video after upload.');
-                } finally {
-                    setIsLoading(false);
-                    setUploadProgress(null);
-                }
-            }
-        );
+        try {
+            const analysisResult = await analyzeVideo(prompt, file);
+            setResult(analysisResult);
+        } catch (e: any) {
+            setError(e.message || 'Failed to analyze video.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleStandardSubmit = async () => {
@@ -93,7 +69,6 @@ export const ContentAnalyzer: React.FC = () => {
         setIsLoading(true);
         setResult('');
         setError('');
-        setUploadProgress(null);
         
         try {
             let analysisResult = '';
@@ -138,7 +113,7 @@ export const ContentAnalyzer: React.FC = () => {
 
     const TypeButton = useCallback(({ type }: { type: AnalysisType }) => (
         <button
-            onClick={() => { setAnalysisType(type); setFile(null); setFilePreview(null); setResult(''); setError(''); setUploadProgress(null); }}
+            onClick={() => { setAnalysisType(type); setFile(null); setFilePreview(null); setResult(''); setError(''); }}
             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${analysisType === type ? 'bg-amber-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
         >
             Analyze {type}
@@ -147,22 +122,7 @@ export const ContentAnalyzer: React.FC = () => {
 
     const renderResultArea = () => {
         if (isLoading) {
-            if (analysisType === 'Video' && uploadProgress !== null && uploadProgress < 100) {
-                return (
-                    <div className="w-full px-4">
-                        <p className="text-center text-sm text-gray-300 mb-2">
-                            Uploading... {Math.round(uploadProgress)}%
-                        </p>
-                        <div className="w-full bg-gray-700 rounded-full h-2.5">
-                            <div
-                                className="bg-amber-500 h-2.5 rounded-full transition-all duration-150"
-                                style={{ width: `${uploadProgress}%` }}
-                            ></div>
-                        </div>
-                    </div>
-                );
-            }
-            return <LoadingSpinner text={analysisType === 'Video' ? 'Analyzing...' : 'Processing...'} />;
+            return <LoadingSpinner text={'Processing...'} />;
         }
         if (error) return <p className="text-amber-500 text-center">{error}</p>;
         if (result) return <div className="text-gray-200 whitespace-pre-wrap overflow-y-auto max-h-96 w-full">{result}</div>;
@@ -208,7 +168,7 @@ export const ContentAnalyzer: React.FC = () => {
                         disabled={isLoading || !file}
                         className="w-full bg-amber-600 text-white font-bold py-3 px-5 rounded-lg hover:bg-amber-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors"
                     >
-                        {isLoading ? (uploadProgress !== null ? 'Uploading...' : 'Analyzing...') : `Analyze ${analysisType}`}
+                        {isLoading ? 'Analyzing...' : `Analyze ${analysisType}`}
                     </button>
                 </div>
 
