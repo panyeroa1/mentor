@@ -132,10 +132,30 @@ export const analyzeImage = async (prompt: string, imageBase64: string, mimeType
 export const analyzeVideo = async (prompt: string, videoFile: File): Promise<string> => {
   // NOTE: Direct video file analysis via `generateContent` is not supported by the client SDK.
   // This is a placeholder to demonstrate UI flow. In a real-world scenario, you would
-  // use a backend service to process the video (e.g., extract frames) and send them to the API.
+  // use a backend service to process the video (e.g., extract frames or audio) and send them to the API.
   console.log("Simulating video analysis for:", videoFile.name, "with prompt:", prompt);
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  return `This is a simulated analysis for the video "${videoFile.name}". Gemini 2.5 Pro is ideal for this task, but client-side video upload for analysis is not directly supported. The prompt was: "${prompt}".`;
+  await new Promise(resolve => setTimeout(resolve, 3000)); // Increased delay to simulate analysis time post-upload
+
+  const lowerCasePrompt = prompt.toLowerCase();
+  
+  if (lowerCasePrompt.includes("transcribe") || lowerCasePrompt.includes("transcription")) {
+    return `**Simulated Transcription for "${videoFile.name}"**
+
+[00:01] Hello everyone, and welcome back to the channel. Today we're going to be talking about a very exciting topic.
+[00:08] As you can see, the main subject is right here in front of us. It's a key component of our new strategy.
+[00:15] I want to highlight three main points... First, the efficiency. Second, the cost-effectiveness. And third, the scalability.
+[00:25] Thank you for watching. Don't forget to like and subscribe!
+
+---
+*This is a simulated transcription. The Gemini API does not support direct video file uploads from the client-side for transcription.*`;
+  }
+
+  return `**Simulated Analysis for "${videoFile.name}"**
+
+The video appears to be a presentation or a tutorial. The main subject is a product or concept being demonstrated. The speaker is enthusiastic and highlights several key benefits. The overall tone is professional and informative. The prompt was: "${prompt}".
+
+---
+*This is a simulated analysis. Gemini 2.5 Pro is ideal for this task, but client-side video upload for analysis is not directly supported.*`;
 };
 
 // --- Audio ---

@@ -1,7 +1,10 @@
+
 import React, { useState, useCallback } from 'react';
 import { analyzeImage, analyzeVideo, transcribeAudio } from '../services/geminiService';
 import { fileToBase64 } from '../utils/fileUtils';
 import { LoadingSpinner } from './common/LoadingSpinner';
+import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../supabaseClient';
 
 type AnalysisType = 'Image' | 'Video' | 'Audio';
 
@@ -12,6 +15,7 @@ const UploadIcon = () => (
 );
 
 export const ContentAnalyzer: React.FC = () => {
+    const { user } = useAuth();
     const [analysisType, setAnalysisType] = useState<AnalysisType>('Image');
     const [file, setFile] = useState<File | null>(null);
     const [prompt, setPrompt] = useState('');
@@ -19,6 +23,7 @@ export const ContentAnalyzer: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [filePreview, setFilePreview] = useState<string | null>(null);
+    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
@@ -26,6 +31,7 @@ export const ContentAnalyzer: React.FC = () => {
             setFile(selectedFile);
             setResult('');
             setError('');
+            setUploadProgress(null);
             if (selectedFile.type.startsWith('image/')) {
                 setFilePreview(URL.createObjectURL(selectedFile));
             } else if (selectedFile.type.startsWith('audio/')) {
@@ -38,27 +44,85 @@ export const ContentAnalyzer: React.FC = () => {
         }
     };
 
-    const handleSubmit = async () => {
-        if (!file) {
-            setError('Please select a file to analyze.');
-            return;
-        }
-        if (analysisType !== 'Audio' && !prompt.trim()) {
-            setError('Please enter a prompt for the analysis.');
+    const handleVideoSubmit = async () => {
+        if (!file) return;
+        if (!user) {
+            setError('You must be logged in to upload and analyze videos.');
             return;
         }
 
         setIsLoading(true);
         setResult('');
         setError('');
+        setUploadProgress(0);
 
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${user.id}/analysis/${fileName}`;
+
+        try {
+            const { data: uploadUrlData, error: urlError } = await supabase.storage
+                .from('videos')
+                .createSignedUploadUrl(filePath);
+
+            if (urlError) throw urlError;
+            const { signedUrl } = uploadUrlData;
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', signedUrl, true);
+            xhr.setRequestHeader('Content-Type', file.type);
+
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percentComplete = (event.loaded / event.total) * 100;
+                    setUploadProgress(percentComplete);
+                }
+            };
+
+            xhr.onload = async () => {
+                if (xhr.status === 200) {
+                    try {
+                        const analysisResult = await analyzeVideo(prompt, file);
+                        setResult(analysisResult);
+                    } catch (e: any) {
+                        setError(e.message || 'Failed to analyze video after upload.');
+                    } finally {
+                        setIsLoading(false);
+                        setUploadProgress(null);
+                    }
+                } else {
+                    setError(`Upload failed: ${xhr.statusText}`);
+                    setIsLoading(false);
+                    setUploadProgress(null);
+                }
+            };
+
+            xhr.onerror = () => {
+                setError('A network error occurred during upload.');
+                setIsLoading(false);
+                setUploadProgress(null);
+            };
+
+            xhr.send(file);
+        } catch (err: any) {
+            setError(err.message || 'Failed to prepare video for upload.');
+            setIsLoading(false);
+            setUploadProgress(null);
+        }
+    };
+
+    const handleStandardSubmit = async () => {
+        if (!file) return;
+        setIsLoading(true);
+        setResult('');
+        setError('');
+        setUploadProgress(null);
+        
         try {
             let analysisResult = '';
             if (analysisType === 'Image') {
                 const imageBase64 = await fileToBase64(file);
                 analysisResult = await analyzeImage(prompt, imageBase64, file.type);
-            } else if (analysisType === 'Video') {
-                 analysisResult = await analyzeVideo(prompt, file);
             } else if (analysisType === 'Audio') {
                 const audioBase64 = await fileToBase64(file);
                 analysisResult = await transcribeAudio(audioBase64, file.type);
@@ -71,6 +135,23 @@ export const ContentAnalyzer: React.FC = () => {
             setIsLoading(false);
         }
     };
+
+    const handleSubmit = () => {
+        if (!file) {
+            setError('Please select a file to analyze.');
+            return;
+        }
+        if (analysisType !== 'Audio' && !prompt.trim()) {
+            setError('Please enter a prompt for the analysis.');
+            return;
+        }
+        
+        if (analysisType === 'Video') {
+            handleVideoSubmit();
+        } else {
+            handleStandardSubmit();
+        }
+    };
     
     const acceptedFileTypes = {
         'Image': 'image/*',
@@ -80,12 +161,36 @@ export const ContentAnalyzer: React.FC = () => {
 
     const TypeButton = useCallback(({ type }: { type: AnalysisType }) => (
         <button
-            onClick={() => { setAnalysisType(type); setFile(null); setFilePreview(null); setResult(''); setError(''); }}
+            onClick={() => { setAnalysisType(type); setFile(null); setFilePreview(null); setResult(''); setError(''); setUploadProgress(null); }}
             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${analysisType === type ? 'bg-amber-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
         >
             Analyze {type}
         </button>
     ), [analysisType]);
+
+    const renderResultArea = () => {
+        if (isLoading) {
+            if (analysisType === 'Video' && uploadProgress !== null && uploadProgress < 100) {
+                return (
+                    <div className="w-full px-4">
+                        <p className="text-center text-sm text-gray-300 mb-2">
+                            Uploading... {Math.round(uploadProgress)}%
+                        </p>
+                        <div className="w-full bg-gray-700 rounded-full h-2.5">
+                            <div
+                                className="bg-amber-500 h-2.5 rounded-full transition-all duration-150"
+                                style={{ width: `${uploadProgress}%` }}
+                            ></div>
+                        </div>
+                    </div>
+                );
+            }
+            return <LoadingSpinner text={analysisType === 'Video' ? 'Analyzing...' : 'Processing...'} />;
+        }
+        if (error) return <p className="text-amber-500 text-center">{error}</p>;
+        if (result) return <div className="text-gray-200 whitespace-pre-wrap overflow-y-auto max-h-96 w-full">{result}</div>;
+        return <p className="text-gray-500">Analysis result will appear here.</p>;
+    };
 
     return (
         <div className="h-full flex flex-col">
@@ -115,7 +220,7 @@ export const ContentAnalyzer: React.FC = () => {
                         <textarea
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
-                            placeholder={`e.g., What is in this image? or Summarize this video.`}
+                            placeholder={analysisType === 'Video' ? `e.g., Transcribe this video, or Summarize this for me.` : `e.g., What is in this image?`}
                             className="w-full bg-gray-800 text-white rounded-lg p-3 h-24 focus:outline-none focus:ring-2 focus:ring-amber-500"
                             disabled={isLoading}
                         />
@@ -126,15 +231,12 @@ export const ContentAnalyzer: React.FC = () => {
                         disabled={isLoading || !file}
                         className="w-full bg-amber-600 text-white font-bold py-3 px-5 rounded-lg hover:bg-amber-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors"
                     >
-                        {isLoading ? 'Analyzing...' : `Analyze ${analysisType}`}
+                        {isLoading ? (uploadProgress !== null ? 'Uploading...' : 'Analyzing...') : `Analyze ${analysisType}`}
                     </button>
                 </div>
 
                 <div className="bg-gray-900 rounded-lg p-4 flex items-center justify-center">
-                    {isLoading && <LoadingSpinner />}
-                    {error && <p className="text-amber-500">{error}</p>}
-                    {result && <div className="text-gray-200 whitespace-pre-wrap overflow-y-auto max-h-96">{result}</div>}
-                    {!isLoading && !error && !result && <p className="text-gray-500">Analysis result will appear here.</p>}
+                    {renderResultArea()}
                 </div>
             </div>
         </div>
