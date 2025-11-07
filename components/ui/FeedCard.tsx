@@ -1,6 +1,8 @@
+
 import React from 'react';
 import type { FeedItem } from '../../types';
 import { LikeIcon, CommentIcon, ShareIcon } from './icons';
+import { timeAgo } from '../../utils/timeUtils';
 
 interface FeedCardProps {
   item: FeedItem;
@@ -15,18 +17,21 @@ const FeedCard: React.FC<FeedCardProps> = ({ item }) => {
           <img src={item.author.avatar_url} alt={item.author.full_name} className="w-11 h-11 rounded-full mr-3" />
           <div>
             <p className="font-bold text-white">{item.author.full_name}</p>
-            <p className="text-xs text-gray-400">{item.created_at} &middot; <span className="capitalize font-semibold text-amber-500">{item.type}</span></p>
+            <p className="text-xs text-gray-400">{timeAgo(item.created_at)} &middot; <span className="capitalize font-semibold text-amber-500">{item.type}</span></p>
           </div>
         </div>
 
         {/* Card Body */}
-        {item.media_title && <h2 className="text-lg font-bold text-gray-100 mb-2">{item.media_title}</h2>}
-        {item.text_content && <p className="text-gray-300 mb-3">{item.text_content}</p>}
+        {item.text_content && <p className="text-gray-300 mb-3 whitespace-pre-wrap">{item.text_content}</p>}
         
-        {item.media_thumbnail_url && (
-            <div className="rounded-lg overflow-hidden border border-gray-700">
-                <img src={item.media_thumbnail_url} alt={item.media_title || 'Feed media'} className="w-full h-auto" />
-            </div>
+        {item.media_url && (
+          <div className="rounded-lg overflow-hidden border border-gray-700">
+            {item.media_type === 'image' ? (
+              <img src={item.media_url} alt="Feed media" className="w-full h-auto" />
+            ) : item.media_type === 'video' ? (
+              <video controls src={item.media_url} className="w-full h-auto bg-black" />
+            ) : null}
+          </div>
         )}
 
       </div>

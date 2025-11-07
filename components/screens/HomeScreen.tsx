@@ -1,49 +1,84 @@
-import React from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import FeedCard from '../ui/FeedCard';
-import { useAuth } from '../../hooks/useAuth';
-import type { FeedItem } from '../../types';
-
-const mockFeedItems: FeedItem[] = [
-    {
-        id: '1',
-        author: { id: 'mentor-1', full_name: 'Jane Smith', role: 'mentor', avatar_url: 'https://i.pravatar.cc/150?u=janesmith' },
-        type: 'training',
-        media_title: 'Introduction to FastAPI',
-        text_content: 'Just dropped a new training module covering the basics of FastAPI for modern web development. Perfect for beginners!',
-        media_thumbnail_url: 'https://images.unsplash.com/photo-1555066931-4365d14694dd?w=400&q=80',
-        created_at: '2h ago',
-        like_count: 42,
-        comment_count: 8,
-    },
-    {
-        id: '2',
-        author: { id: 'mentor-2', full_name: 'Mark Johnson', role: 'mentor', avatar_url: 'https://i.pravatar.cc/150?u=markjohnson' },
-        type: 'post',
-        text_content: 'What are your biggest challenges when it comes to client presentations? Let\'s discuss in the comments! 👇',
-        created_at: '5h ago',
-        like_count: 18,
-        comment_count: 12,
-    },
-     {
-        id: '3',
-        author: { id: 'mentor-1', full_name: 'Jane Smith', role: 'mentor', avatar_url: 'https://i.pravatar.cc/150?u=janesmith' },
-        type: 'video',
-        media_title: 'Client Pitch Deck - Q3 2024',
-        text_content: 'Sharing a recent presentation video for feedback. This one is unlisted, just for my trusted network.',
-        media_thumbnail_url: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=400&q=80',
-        created_at: '1d ago',
-        like_count: 25,
-        comment_count: 4,
-    }
-];
-
+import { useAuth, getPostsFromDB, getVideoFromDB } from '../../hooks/useAuth';
+import type { FeedItem, Post } from '../../types';
+import { CreatePost } from '../CreatePost';
+import { LoadingSpinner } from '../common/LoadingSpinner';
 
 const HomeScreen: React.FC = () => {
     const { user } = useAuth();
+    const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isCreatePostOpen, setCreatePostOpen] = useState(false);
+
+    const loadFeed = useCallback(async () => {
+        if (!user) return;
+        setIsLoading(true);
+
+        // Clean up old object URLs before creating new ones
+        feedItems.forEach(item => {
+            if (item.media_type === 'video' && item.media_url?.startsWith('blob:')) {
+                URL.revokeObjectURL(item.media_url);
+            }
+        });
+
+        const dbPosts = await getPostsFromDB();
+        const items = await Promise.all(
+            dbPosts.map(async (post): Promise<FeedItem> => {
+                let media_url: string | undefined;
+                let media_type: 'image' | 'video' | undefined;
+
+                if (post.media) {
+                    media_type = post.media.type;
+                    if (post.media.type === 'image') {
+                        media_url = post.media.content; // It's a data URL
+                    } else if (post.media.type === 'video') {
+                        const videoRecord = await getVideoFromDB(post.media.content);
+                        if (videoRecord) {
+                            media_url = URL.createObjectURL(videoRecord.file);
+                        }
+                    }
+                }
+
+                return {
+                    id: post.id,
+                    author: user, // Simplified for single user app
+                    text_content: post.text_content,
+                    created_at: post.created_at,
+                    like_count: post.like_count,
+                    comment_count: post.comment_count,
+                    media_url,
+                    media_type,
+                    type: post.media?.type === 'video' ? 'video' : 'post',
+                };
+            })
+        );
+        setFeedItems(items);
+        setIsLoading(false);
+    }, [user]); // Removed feedItems from dependencies to prevent loop
+
+    useEffect(() => {
+        loadFeed();
+
+        return () => {
+            // Final cleanup on component unmount
+            feedItems.forEach(item => {
+                if (item.media_type === 'video' && item.media_url?.startsWith('blob:')) {
+                    URL.revokeObjectURL(item.media_url);
+                }
+            });
+        };
+    }, [loadFeed]);
+    
+    const handlePostCreated = () => {
+        setCreatePostOpen(false);
+        loadFeed();
+    };
+
 
     return (
         <div>
-            {/* Header */}
             <header className="sticky top-0 bg-gray-900/80 backdrop-blur-md z-10 border-b border-gray-800">
                 <div className="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center h-16">
                     <img src="https://aiteksoftware.site/magnetar/logo.png" alt="Magnetar Logo" className="h-8 w-auto" />
@@ -51,12 +86,38 @@ const HomeScreen: React.FC = () => {
                 </div>
             </header>
 
-            {/* Feed */}
-            <div className="max-w-3xl mx-auto p-4 md:p-0 md:py-4">
-               {mockFeedItems.map(item => (
-                   <FeedCard key={item.id} item={item} />
-               ))}
-            </div>
+            <main className="max-w-3xl mx-auto p-4 md:p-0 md:py-4">
+                {/* Create Post section */}
+                <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 mb-4 flex items-center gap-3">
+                    <img src={user?.avatar_url} alt="My Avatar" className="w-10 h-10 rounded-full" />
+                    <button onClick={() => setCreatePostOpen(true)} className="flex-grow text-left bg-gray-900 text-gray-400 rounded-full px-4 py-2 hover:bg-gray-700 transition-colors">
+                        What's on your mind?
+                    </button>
+                </div>
+
+                {/* Feed */}
+                {isLoading ? (
+                    <div className="flex justify-center mt-16">
+                        <LoadingSpinner text="Loading Feed..." />
+                    </div>
+                ) : feedItems.length > 0 ? (
+                    feedItems.map(item => (
+                        <FeedCard key={item.id} item={item} />
+                    ))
+                ) : (
+                     <div className="text-center py-16 text-gray-500">
+                        <h3 className="text-lg font-semibold text-white">Your Feed is Empty</h3>
+                        <p>Create your first post to get started!</p>
+                    </div>
+                )}
+            </main>
+            
+            {isCreatePostOpen && (
+                <CreatePost 
+                    onClose={() => setCreatePostOpen(false)} 
+                    onPostCreated={handlePostCreated}
+                />
+            )}
         </div>
     );
 };

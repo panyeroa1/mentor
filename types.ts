@@ -10,20 +10,35 @@ export interface Profile {
   bio?: string;
 }
 
+export interface Post {
+  id: string;
+  author_id: string;
+  text_content?: string;
+  media?: {
+    type: 'image' | 'video';
+    // For image: base64 data URL
+    // For video: ID of the video in the 'videos' object store
+    content: string;
+  };
+  created_at: string; // ISO timestamp
+  like_count: number;
+  comment_count: number;
+}
+
 export type FeedItemType = 'post' | 'training' | 'seminar' | 'video';
 
 export interface FeedItem {
-  id: string; // UUID
+  id: string; // UUID from Post
   author: Profile;
   type: FeedItemType;
-  ref_id?: string; // UUID reference to the actual content
   text_content?: string;
   created_at: string; // ISO timestamp
   like_count: number;
   comment_count: number;
-  media_thumbnail_url?: string;
-  media_title?: string;
+  media_url?: string; // for image or video
+  media_type?: 'image' | 'video';
 }
+
 
 export interface Video {
   id: string; // UUID

@@ -1,13 +1,15 @@
 
+
 import React, { useState, useEffect, useContext, createContext, ReactNode } from 'react';
-import type { Profile, UserRole, Video } from '../types';
+import type { Profile, UserRole, Video, Post } from '../types';
 
 // --- IndexedDB Utility Functions ---
 
 const DB_NAME = 'MagnetarDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented version for schema change
 const PROFILE_STORE = 'profiles';
 const VIDEO_STORE = 'videos';
+const POST_STORE = 'posts';
 
 let db: IDBDatabase;
 
@@ -32,6 +34,10 @@ const initDB = (): Promise<IDBDatabase> => {
         const videoStore = dbInstance.createObjectStore(VIDEO_STORE, { keyPath: 'id' });
         videoStore.createIndex('owner_id', 'owner_id', { unique: false });
       }
+      if (!dbInstance.objectStoreNames.contains(POST_STORE)) {
+        const postStore = dbInstance.createObjectStore(POST_STORE, { keyPath: 'id' });
+        postStore.createIndex('created_at', 'created_at', { unique: false });
+      }
     };
   });
 };
@@ -47,32 +53,19 @@ const getFromDB = <T>(storeName: string, key: string): Promise<T | undefined> =>
   });
 };
 
-const getFromDBByIndex = <T>(storeName: string, indexName: string, query: string): Promise<T | undefined> => {
-    return new Promise(async (resolve, reject) => {
-        const db = await initDB();
-        const transaction = db.transaction(storeName, 'readonly');
-        const store = transaction.objectStore(storeName);
-        const index = store.index(indexName);
-        const request = index.get(query);
-        request.onsuccess = () => resolve(request.result as T);
-        request.onerror = () => reject(request.error);
-    });
-};
-
-
 const addToDB = <T>(storeName: string, item: T): Promise<void> => {
   return new Promise(async (resolve, reject) => {
     const db = await initDB();
     const transaction = db.transaction(storeName, 'readwrite');
     const store = transaction.objectStore(storeName);
-    const request = store.add(item);
+    const request = store.put(item);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
 };
 
 // --- Video Specific DB Functions ---
-interface StoredVideo {
+export interface StoredVideo {
     id: string;
     owner_id: string;
     title: string;
@@ -98,12 +91,31 @@ export const getVideosFromDB = (ownerId: string): Promise<StoredVideo[]> => {
     });
 }
 
+export const getVideoFromDB = (id: string): Promise<StoredVideo | undefined> => {
+    return getFromDB<StoredVideo>(VIDEO_STORE, id);
+};
+
+// --- Post Specific DB Functions ---
+export const addPostToDB = (post: Post) => addToDB(POST_STORE, post);
+
+export const getPostsFromDB = (): Promise<Post[]> => {
+    return new Promise(async (resolve, reject) => {
+        const db = await initDB();
+        const transaction = db.transaction(POST_STORE, 'readonly');
+        const store = transaction.objectStore(POST_STORE);
+        const request = store.getAll();
+        request.onsuccess = () => {
+            const sorted = request.result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            resolve(sorted);
+        };
+        request.onerror = () => reject(request.error);
+    });
+};
+
 
 // --- Auth Context ---
 interface AuthContextType {
     user: Profile | null;
-    login: (email: string, password: string) => Promise<{ user?: Profile; error?: Error }>;
-    signup: (email: string, fullName: string, role: UserRole) => Promise<{ user?: Profile; error?: Error }>;
     logout: () => void;
     loading: boolean;
 }
@@ -115,71 +127,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const loadUserFromStorage = async () => {
+        const loadOrCreateUser = async () => {
             try {
-                const userId = localStorage.getItem('currentUser');
-                if (userId) {
-                    const profile = await getFromDB<Profile>(PROFILE_STORE, userId);
-                    if (profile) {
-                        setUser(profile);
-                    }
+                await initDB();
+                const GUEST_USER_ID = 'default-guest-user';
+                let currentUserId = localStorage.getItem('currentUser');
+                let profile: Profile | undefined;
+
+                if (currentUserId) {
+                    profile = await getFromDB<Profile>(PROFILE_STORE, currentUserId);
                 }
+
+                if (!profile) {
+                    profile = await getFromDB<Profile>(PROFILE_STORE, GUEST_USER_ID);
+                    
+                    if (!profile) {
+                        const guestProfile: Profile = {
+                            id: GUEST_USER_ID,
+                            full_name: 'Guest User',
+                            role: 'learner',
+                            avatar_url: `https://i.pravatar.cc/150?u=${GUEST_USER_ID}`,
+                            bio: 'Exploring Magnetar as a guest. All data is stored locally in your browser.',
+                        };
+                        await addToDB(PROFILE_STORE, guestProfile);
+                        profile = guestProfile;
+                    }
+                    localStorage.setItem('currentUser', GUEST_USER_ID);
+                }
+                
+                setUser(profile);
             } catch (error) {
-                console.error("Failed to load user from storage:", error);
+                console.error("Failed to initialize user session:", error);
             } finally {
                 setLoading(false);
             }
         };
-        loadUserFromStorage();
+        loadOrCreateUser();
     }, []);
-
-    const login = async (email: string, password: string): Promise<{ user?: Profile; error?: Error }> => {
-        // NOTE: Password is not checked as this is an insecure local-only DB.
-        try {
-            const profile = await getFromDBByIndex<Profile & { email: string }>(PROFILE_STORE, 'email', email);
-            if (profile) {
-                localStorage.setItem('currentUser', profile.id);
-                setUser(profile);
-                return { user: profile };
-            }
-            return { error: new Error('User not found.') };
-        } catch (error) {
-            return { error: error as Error };
-        }
-    };
-
-    const signup = async (email: string, fullName: string, role: UserRole): Promise<{ user?: Profile; error?: Error }> => {
-        try {
-            const existingUser = await getFromDBByIndex(PROFILE_STORE, 'email', email);
-            if (existingUser) {
-                return { error: new Error("An account with this email already exists.") };
-            }
-
-            const userId = crypto.randomUUID();
-            const profileData: Profile & { email: string } = {
-                id: userId,
-                full_name: fullName,
-                role: role,
-                avatar_url: `https://i.pravatar.cc/150?u=${userId}`,
-                bio: 'Welcome to Magnetar! Edit your bio in your profile.',
-                email: email, // Storing email for login lookup
-            };
-
-            await addToDB(PROFILE_STORE, profileData);
-            localStorage.setItem('currentUser', userId);
-            setUser(profileData);
-            return { user: profileData };
-        } catch (error) {
-             return { error: error as Error };
-        }
-    };
 
     const logout = () => {
         localStorage.removeItem('currentUser');
-        setUser(null);
+        // A full reload is the simplest way to reset the state and re-trigger guest creation.
+        window.location.reload(); 
     };
 
-    const value = { user, login, signup, logout, loading };
+    const value = { user, logout, loading };
 
     return React.createElement(AuthContext.Provider, { value }, children);
 };

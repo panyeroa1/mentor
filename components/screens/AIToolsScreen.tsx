@@ -1,6 +1,7 @@
 
+
 import React, { useState } from 'react';
-import { AIToolsIcon, BackIcon, CommentIcon, LightbulbIcon, MessageIcon, PhoneIcon, ScriptIcon, ShieldIcon, VideoIcon } from '../ui/icons';
+import { AIToolsIcon, BackIcon, CommentIcon, LightbulbIcon, MessageIcon, PhoneIcon, ProfileIcon, ScriptIcon, ShieldIcon, VideoIcon } from '../ui/icons';
 import { runQuickResponse } from '../../services/geminiService';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 
@@ -40,6 +41,16 @@ const allTools: Tool[] = [
     { id: 'content_ideas', name: 'Content Idea Generator', description: 'Brainstorm content to build your personal brand.', icon: LightbulbIcon, promptInfo: { placeholder: 'Enter your niche or area of expertise. E.g., "health and wellness," "financial literacy for network marketers," "leadership skills."', systemPrompt: 'You are a content strategy expert. Generate 5 creative content ideas (blog posts, videos, or live streams) for a network marketer in the following niche:' } },
     { id: 'compliance_checker', name: 'Ad Compliance Checker', description: 'Check your ad copy for compliance red flags.', icon: ShieldIcon, promptInfo: { placeholder: 'Paste your ad copy or social media post here.', systemPrompt: 'You are an MLM compliance officer. Review the following text for potential compliance issues like income claims or unapproved health claims. Point out the potential issues and suggest safer alternatives.' } },
     { id: 'follow_up', name: 'Lead Follow-up Helper', description: 'Generate a sequence of follow-up messages.', icon: MessageIcon, promptInfo: { placeholder: 'Describe the lead and the last interaction. E.g., "A prospect named Maria attended our webinar yesterday but hasn\'t replied yet."', systemPrompt: 'You are a sales follow-up expert. Write a friendly, non-annoying 3-message follow-up sequence (spaced out over a few days) for the following lead:' } },
+    { 
+      id: 'lead_generator', 
+      name: 'Lead Generator', 
+      description: 'Generate profiles of potential leads for your niche.', 
+      icon: ProfileIcon,
+      promptInfo: { 
+        placeholder: 'Describe your product or business opportunity. E.g., "A high-end organic skincare line for anti-aging" or "A financial literacy program for young professionals."', 
+        systemPrompt: 'You are an expert lead generation strategist for the network marketing industry. Based on the user\'s product or opportunity, generate 5 detailed profiles of ideal customer avatars. For each profile, include their name, age, profession, pain points, goals, and where to find them online (e.g., Facebook groups, Instagram hashtags, LinkedIn industries).' 
+      } 
+    },
     
     // Existing Tools
     { id: 'call_center_agent', name: 'Live Agent Call', description: 'Speak with Vanessa, an Ascendra presenter.', icon: PhoneIcon, component: <CallCenterAgent /> },
